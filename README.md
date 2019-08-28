@@ -29,6 +29,9 @@ update-repos.sh <folder> <remote> <branches> <ff-only> <regex>
   ```
 
 ## In the pipeline
-+ Support for parallel processing
-+ Improved command line experience with flags etc
-+ Support for multiple origins (only content fetching, not merging...?)
+1. Automatic stash handling in case there are uncommited changes preventing a checkout
+2. Cross platform support
+3. Support for parallel processing
+4. Improved command line experience with flags etc
+5. Support for multiple origins (only content fetching, not merging...?)
+6. Investigate partial, shallow fetching,...

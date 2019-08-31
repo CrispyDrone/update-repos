@@ -29,9 +29,22 @@ update-repos.sh <folder> <remote> <branches> <ff-only> <regex>
   ```
 
 ## In the pipeline
-1. Automatic stash handling in case there are uncommited changes preventing a checkout
-2. Cross platform support
-3. Support for parallel processing
-4. Improved command line experience with flags etc
-5. Support for multiple origins (only content fetching, not merging...?)
-6. Investigate partial, shallow fetching,...
+1. Add support to update any repository in the root folder regardless of its depth. Currently it only considers the immediate i.e. level 1 subfolders.
+2. Support for parallel processing
+3. Improved command line experience with flags etc
+4. Support for multiple origins (only content fetching, not merging...?)
+5. Investigate partial, shallow fetching,...
+6. Cross platform support
+7. Remove unnecessary usages of grep and sed by parameter substitution etc.
+8. Improve error handling
+9. Rewrite the git remote url validation since it's not required for a git repository folder to end in `.git`
+
+## Change history:
++ v0.21:
+  + Added support for automatic stashing in case the repository contains uncommitted changes that prevent a checkout to one of the specified branches.
++ v0.20: 
+  + Added regex support to specify which repositories need to be updated (see git clone url)
+  + Added support for specifying the remotes to fetch from
++ v0.10: Initial release
+  + Update level 1 folders containing git repositories for a specified set of branches.
+  + Support for fast forward only merges

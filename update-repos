@@ -57,12 +57,12 @@ do
 	echo "remote url: ${remote_url}"
 	echo "repository name: ${repository_name}"
 
-	#if [[ ${repository_name} == ${remote_url} ]]
-	#then
-	#	echo "Skipping this repository since $remote_url does not look like a valid git remote url"
-	#	popd
-	#	continue
-	#fi
+	if [[ ${repository_name} == ${remote_url} ]]
+	then
+		echo "Skipping this repository since $remote_url does not look like a valid git remote url"
+		popd
+		continue
+	fi
 
 	shopt -s nocasematch
 

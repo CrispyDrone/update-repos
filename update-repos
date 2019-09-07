@@ -4,7 +4,7 @@
 # set -e
 
 # constants
-get_repository_name_regex='^.+\/\(.*\)\.git$'
+get_repository_name_regex='^[^\/]\+\/\/\([^\/]\+\/\)\+\([^\/]\+\)\.git$'
 get_stash_regex='^\([^:]\+\).*'
 
 # variables
@@ -30,14 +30,59 @@ elementIn()
   	return 1
 }
 
-# script
-pushd ${root_directory}
-echo "changed to directory ${root_directory}"
+shopt -s nullglob
+getGitRepositories()
+{
+	local root rootFolder="${1}"
 
-for folder in */
+	# The algorithm:
+	# Is the current folder a "git directory" i.e. are we in the git workspace or git folder? (If the latter, move to workspace, hmm actually not reliably posssible because the .git dir doesn't store any reference to a work tree)
+		# If yes, return it and change directory to parent. Are we now in a parent directory of the root? If so terminate.
+		# If no, treat all the child folders recursively.
+
+	#echo "changing directory to ${rootFolder}"
+	cd "${rootFolder}" >/dev/null
+
+	inside_git_dir=$(git rev-parse --is-inside-git-dir 2>/dev/null)
+	inside_git_dir_status_code=$?
+	#echo "inside_git_dir status code: $inside_git_dir_status_code"
+	#echo "inside_git_dir: $inside_git_dir"
+
+	if [[ $inside_git_dir_status_code -eq 0 ]]
+	then
+		#echo "inside git dir"
+		while [[ $inside_git_dir = true ]]
+		do
+			#echo "moving up one dir"
+			cd .. > /dev/null
+			inside_git_dir=$(git rev-parse --is-inside-git-dir >/dev/null 2>&1) || { echo "Cannot determine work tree for external GIT_DIR $rootFolder" >&2; return 1; }
+		done
+
+		root=$(git rev-parse --show-toplevel 2>/dev/null)
+		#echo "root: $root"
+
+		if [[ -n $root ]]
+		then
+			echo "${root}"
+			return 0
+		else
+			echo "Cannot determine root directory for an unknown reason $rootFolder" >&2 && return 128
+		fi
+	else
+		echo "$rootFolder is not a git directory, checking child folders" >&2
+		for folder in "${rootFolder}"/*/
+		do
+			#echo "${folder}"
+			getGitRepositories "${folder}"
+		done
+	fi
+}
+
+# script
+while IFS='' read -r git_repo
 do
-	pushd "${folder}"
-	echo "changed to directory $folder"
+	pushd "${git_repo}" >/dev/null
+	echo "changed to directory $git_repo"
 
 	IFS='' read -ra existing_remotes <<< $(git remote)
 
@@ -47,12 +92,12 @@ do
 	then
 		echo "${remote} does not exist!"
 		echo "Skipping this repository."
-		popd
+		popd >/dev/null
 		continue
 	fi
 
 	remote_url=$(git remote get-url "${remote}")
-	repository_name=$(echo "${remote_url}" | sed 's/'"${get_repository_name_regex}"'/\1/')
+	repository_name=$(echo "${remote_url}" | sed 's/'"${get_repository_name_regex}"'/\2/')
 
 	echo "remote url: ${remote_url}"
 	echo "repository name: ${repository_name}"
@@ -60,7 +105,7 @@ do
 	if [[ ${repository_name} == ${remote_url} ]]
 	then
 		echo "Skipping this repository since $remote_url does not look like a valid git remote url"
-		popd
+		popd >/dev/null
 		continue
 	fi
 
@@ -69,7 +114,7 @@ do
 	if [[ ! ${repository_name} =~ ${repository_name_regex} ]]
 	then
 		echo "Skipping ${repository_name} since it does not match the given regex ${repository_name_regex}"
-		popd
+		popd >/dev/null
 		continue
 	fi
 
@@ -82,7 +127,7 @@ do
 	then
 		echo "One or multiple branches of ${branches[@]} were not found on the remote."
 		echo "Skipping this repository."
-		popd
+		popd >/dev/null
 		continue
 	fi
 
@@ -121,5 +166,6 @@ do
 		git stash pop "${ourStash}"
 	fi
 
-	popd
-done
+	popd >/dev/null
+
+done < <(getGitRepositories "${root_directory}")

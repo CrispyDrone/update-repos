@@ -29,17 +29,18 @@ update-repos.sh <folder> <remote> <branches> <ff-only> <regex>
   ```
 
 ## In the pipeline
-1. Add support to update any repository in the root folder regardless of its depth. Currently it only considers the immediate i.e. level 1 subfolders.
-2. Support for parallel processing
-3. Improved command line experience with flags etc
-4. Support for multiple origins (only content fetching, not merging...?)
-5. Investigate partial, shallow fetching,...
-6. Cross platform support
-7. Remove unnecessary usages of grep and sed by parameter substitution etc.
-8. Improve error handling
-9. Rewrite the git remote url validation since it's not required for a git repository folder to end in `.git`
+1. Support for parallel processing
+2. Improved command line experience with flags etc
+3. Support for multiple origins (only content fetching, not merging...?)
+4. Investigate partial, shallow fetching,...
+5. Cross platform support
+6. Remove unnecessary usages of grep and sed by parameter substitution etc.
+7. Improve error handling
+8. Rewrite the git remote url validation since it's not required for a git repository folder to end in `.git`
 
 ## Change history:
++ v0.22
+  + Add support to update any repository in the root folder regardless of its depth. Before it only considered the immediate i.e. level 1 subfolders.
 + v0.21:
   + Added support for automatic stashing in case the repository contains uncommitted changes that prevent a checkout to one of the specified branches.
 + v0.20: 

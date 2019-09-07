@@ -30,96 +30,168 @@ elementIn()
   	return 1
 }
 
-# script
-pushd ${root_directory}
-echo "changed to directory ${root_directory}"
+shopt -s nullglob
+getGitRepositories()
+{
+	local root rootFolder="${1}"
 
-for folder in */
-do
-	pushd "${folder}"
-	echo "changed to directory $folder"
+	# The algorithm:
+	# Is the current folder a "git directory" i.e. are we in the git workspace or git folder? (If the latter, move to workspace, hmm actually not reliably posssible because the .git dir doesn't store any reference to a work tree)
+		# If yes, return it and change directory to parent. Are we now in a parent directory of the root? If so terminate.
+		# If no, treat all the child folders recursively.
 
-	IFS='' read -ra existing_remotes <<< $(git remote)
+	#echo "changing directory to ${rootFolder}"
+	cd "${rootFolder}" >/dev/null
 
-	echo "existing remotes: ${existing_remotes[@]}"
+	inside_git_dir=$(git rev-parse --is-inside-git-dir 2>/dev/null)
+	inside_git_dir_status_code=$?
+	#echo "inside_git_dir status code: $inside_git_dir_status_code"
+	#echo "inside_git_dir: $inside_git_dir"
 
-	if ! elementIn "${remote}" "${existing_remotes[@]}"
+	if [[ $inside_git_dir_status_code -eq 0 ]]
 	then
-		echo "${remote} does not exist!"
-		echo "Skipping this repository."
-		popd
-		continue
-	fi
+		#echo "inside git dir"
+		while [[ $inside_git_dir = true ]]
+		do
+			#echo "moving up one dir"
+			cd .. > /dev/null
+			inside_git_dir=$(git rev-parse --is-inside-git-dir >/dev/null 2>&1) || { echo "Cannot determine work tree for external GIT_DIR $rootFolder" >&2; return 1; }
+		done
 
-	remote_url=$(git remote get-url "${remote}")
-	repository_name=$(echo "${remote_url}" | sed 's/'"${get_repository_name_regex}"'/\1/')
+		root=$(git rev-parse --show-toplevel 2>/dev/null)
+		#echo "root: $root"
 
-	echo "remote url: ${remote_url}"
-	echo "repository name: ${repository_name}"
-
-	if [[ ${repository_name} == ${remote_url} ]]
-	then
-		echo "Skipping this repository since $remote_url does not look like a valid git remote url"
-		popd
-		continue
-	fi
-
-	shopt -s nocasematch
-
-	if [[ ! ${repository_name} =~ ${repository_name_regex} ]]
-	then
-		echo "Skipping ${repository_name} since it does not match the given regex ${repository_name_regex}"
-		popd
-		continue
-	fi
-
-	shopt -u nocasematch
-
-	echo 'fetching new content for '"${remote_url}"
-	git fetch --tags --prune "${remote_url}" "${branches[@]}"
-
-	if [[ ! $? -eq 0 ]]
-	then
-		echo "One or multiple branches of ${branches[@]} were not found on the remote."
-		echo "Skipping this repository."
-		popd
-		continue
-	fi
-
-	initialBranch="$(git rev-parse --abbrev-ref HEAD)"
-	stashed=false
-
-	for branch in "${branches[@]}"
-	do
-		echo "checking out branch $branch"
-		git checkout "${branch}"
-
-		if [[ ! $? -eq 0 ]]
+		if [[ -n $root ]]
 		then
-			stashMessage="$(date +"%Y-%m-%d_%H-%M-%S"): uncommitted changes on branch $(git rev-parse --abbrev-ref HEAD)"
-			git stash push -m "${stashMessage}"
-			stashed=true
-			git checkout "${branch}"
-		fi
-
-		if [[ "${ff_only}" = true ]]
-		then
-			echo "fast foward merging with ${remote}/${branch}"
-			git merge --ff-only "${remote}"/"${branch}"
+			echo "${root}"
+			return 0
 		else
-			echo "merging with ${remote}/${branch}"
-			git merge "${remote}"/"${branch}"
+			echo "Cannot determine root directory for an unknown reason $rootFolder" >&2 && return 128
 		fi
-	done
-
-	git checkout "${initialBranch}"
-	if $stashed
-	then
-		# use the stash where message matches the stashMessage instead
-		ourStash=$(git stash list | grep "${stashMessage}" | sed 's/'"${get_stash_regex}"'/\1/')
-		echo "Stash containing uncommitted work tree changes: $ourStash"
-		git stash pop "${ourStash}"
+	else
+		echo "not a git directory, checking child folders" >&2
+		for folder in "${rootFolder}"/*/
+		do
+			#echo "${folder}"
+			getGitRepositories "${folder}"
+		done
 	fi
+}
 
-	popd
-done
+# shopt -s nullglob
+# walkDirectoryTree()
+# {
+# 	local rootFolder="${1}"
+# 	# cd "${root_folder}"
+# 	for folder in "${rootFolder}"/*
+# 	do
+# 		echo "${folder}"
+# 		walkDirectoryTree "$folder"
+# 	done
+# 
+# }
+
+# while IFS='' read -r git_repo
+# do
+# 	echo "${git_repo}"
+# done < <(walkDirectoryTree "${root_directory}")
+# walkDirectoryTree "${root_directory}"
+
+while IFS='' read -r git_repo
+do
+	echo "git_repo: ${git_repo}"
+done < <(getGitRepositories "${root_directory}")
+
+# script
+#pushd ${root_directory}
+#echo "changed to directory ${root_directory}"
+#
+#for folder in */
+#do
+#	pushd "${folder}"
+#	echo "changed to directory $folder"
+#
+#	IFS='' read -ra existing_remotes <<< $(git remote)
+#
+#	echo "existing remotes: ${existing_remotes[@]}"
+#
+#	if ! elementIn "${remote}" "${existing_remotes[@]}"
+#	then
+#		echo "${remote} does not exist!"
+#		echo "Skipping this repository."
+#		popd
+#		continue
+#	fi
+#
+#	remote_url=$(git remote get-url "${remote}")
+#	repository_name=$(echo "${remote_url}" | sed 's/'"${get_repository_name_regex}"'/\1/')
+#
+#	echo "remote url: ${remote_url}"
+#	echo "repository name: ${repository_name}"
+#
+#	if [[ ${repository_name} == ${remote_url} ]]
+#	then
+#		echo "Skipping this repository since $remote_url does not look like a valid git remote url"
+#		popd
+#		continue
+#	fi
+#
+#	shopt -s nocasematch
+#
+#	if [[ ! ${repository_name} =~ ${repository_name_regex} ]]
+#	then
+#		echo "Skipping ${repository_name} since it does not match the given regex ${repository_name_regex}"
+#		popd
+#		continue
+#	fi
+#
+#	shopt -u nocasematch
+#
+#	echo 'fetching new content for '"${remote_url}"
+#	git fetch --tags --prune "${remote_url}" "${branches[@]}"
+#
+#	if [[ ! $? -eq 0 ]]
+#	then
+#		echo "One or multiple branches of ${branches[@]} were not found on the remote."
+#		echo "Skipping this repository."
+#		popd
+#		continue
+#	fi
+#
+#	initialBranch="$(git rev-parse --abbrev-ref HEAD)"
+#	stashed=false
+#
+#	for branch in "${branches[@]}"
+#	do
+#		echo "checking out branch $branch"
+#		git checkout "${branch}"
+#
+#		if [[ ! $? -eq 0 ]]
+#		then
+#			stashMessage="$(date +"%Y-%m-%d_%H-%M-%S"): uncommitted changes on branch $(git rev-parse --abbrev-ref HEAD)"
+#			git stash push -m "${stashMessage}"
+#			stashed=true
+#			git checkout "${branch}"
+#		fi
+#
+#		if [[ "${ff_only}" = true ]]
+#		then
+#			echo "fast foward merging with ${remote}/${branch}"
+#			git merge --ff-only "${remote}"/"${branch}"
+#		else
+#			echo "merging with ${remote}/${branch}"
+#			git merge "${remote}"/"${branch}"
+#		fi
+#	done
+#
+#	git checkout "${initialBranch}"
+#	if $stashed
+#	then
+#		# use the stash where message matches the stashMessage instead
+#		ourStash=$(git stash list | grep "${stashMessage}" | sed 's/'"${get_stash_regex}"'/\1/')
+#		echo "Stash containing uncommitted work tree changes: $ourStash"
+#		git stash pop "${ourStash}"
+#	fi
+#
+#	popd
+#done

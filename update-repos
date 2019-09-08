@@ -55,7 +55,7 @@ getGitRepositories()
 		do
 			#echo "moving up one dir"
 			cd .. > /dev/null
-			inside_git_dir=$(git rev-parse --is-inside-git-dir >/dev/null 2>&1) || { echo "Cannot determine work tree for external GIT_DIR $rootFolder" >&2; return 1; }
+			inside_git_dir=$(git rev-parse --is-inside-git-dir 2>/dev/null) || { echo "Cannot determine work tree for external GIT_DIR $rootFolder" >&2; return 1; }
 		done
 
 		root=$(git rev-parse --show-toplevel 2>/dev/null)
